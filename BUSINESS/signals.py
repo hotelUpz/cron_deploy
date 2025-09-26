@@ -692,7 +692,7 @@ class SIGNALS(INDICATORS):
 
             # --- Настройки сигналов ---
             gen_signal_func_name = extract_signal_func_name(strategy_name)
-            print(gen_signal_func_name)
+            # print(gen_signal_func_name)
             entry_rules = entry_conditions.get("rules", {})
             is_close_bar = entry_conditions.get("is_close_bar", False)
 

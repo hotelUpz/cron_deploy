@@ -155,9 +155,10 @@ class StrategySettings():
                     },     
                     "is_close_bar": True,             # Дожидаться закрытия бара                
                     "grid_orders": [
-                        {'indent': 0.0, 'volume': 33.3, 'signal': True},
-                        {'indent': -7.0, 'volume': 33.3, 'signal': False}, # %
-                        {'indent': -14.0, 'volume': 33.3, 'signal': False}, # %
+                        {'indent': 0.0, 'volume': 25, 'signal': True},
+                        {'indent': -7.0, 'volume': 25, 'signal': False}, # %
+                        {'indent': -14.0, 'volume': 25, 'signal': False}, # %
+                        {'indent': -21.0, 'volume': 25, 'signal': False}, # %
                         # {'indent': -40.0, 'volume': 20, 'signal': False}, # %
                     ],                       
                 },
@@ -198,10 +199,10 @@ class StrategySettings():
                     },     
                     "is_close_bar": True,       # Дожидаться закрытия бара                
                     "grid_orders": [
-                        {'indent': 0.0, 'volume': 33.3, 'signal': True},
-                        {'indent': -7.0, 'volume': 33.3, 'signal': False}, # %
-                        {'indent': -14.0, 'volume': 33.3, 'signal': False}, # %
-                        # {'indent': -34.0, 'volume': 25, 'signal': False}, # %
+                        {'indent': 0.0, 'volume': 25, 'signal': True},
+                        {'indent': -7.0, 'volume': 25, 'signal': False}, # %
+                        {'indent': -14.0, 'volume': 25, 'signal': False}, # %
+                        {'indent': -21.0, 'volume': 25, 'signal': False}, # %
                         # {'indent': -40.0, 'volume': 20, 'signal': False}, # %
                     ],                      
                 },
