@@ -148,7 +148,7 @@ class StrategySettings():
                     "rules": {
                         'CRON': {
                             'enable': True,            # True/False -- использовать/не использовать
-                            'tfr': "1m",
+                            'tfr': "5m",
                             'period': 0,
                             "ind_name": 'CRON_IND'
                         },  #               
@@ -191,7 +191,7 @@ class StrategySettings():
                     "rules": {
                         'CRON': {
                             'enable': True,            # True/False -- использовать/не использовать
-                            'tfr': "1m",
+                            'tfr': "5m",
                             'period': 0,
                             "ind_name": 'CRON_IND'
                         },  #               
