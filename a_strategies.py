@@ -155,12 +155,13 @@ class StrategySettings():
                     },     
                     "is_close_bar": True,             # Дожидаться закрытия бара                
                     "grid_orders": [
-                        {'indent': 0.0, 'volume': 25, 'signal': True},
-                        {'indent': -7.0, 'volume': 25, 'signal': False}, # %
-                        {'indent': -14.0, 'volume': 25, 'signal': False}, # %
-                        {'indent': -21.0, 'volume': 25, 'signal': False}, # %
-                        # {'indent': -40.0, 'volume': 20, 'signal': False}, # %
-                    ],                       
+                        {'indent': 0.0, 'volume': 14, 'signal': True},
+                        {'indent': -7.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -14.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -21.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -28.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -35.0, 'volume': 14, 'signal': False}, # %
+                    ],                      
                 },
 
                 "exit_conditions": {                              
@@ -199,11 +200,12 @@ class StrategySettings():
                     },     
                     "is_close_bar": True,       # Дожидаться закрытия бара                
                     "grid_orders": [
-                        {'indent': 0.0, 'volume': 25, 'signal': True},
-                        {'indent': -7.0, 'volume': 25, 'signal': False}, # %
-                        {'indent': -14.0, 'volume': 25, 'signal': False}, # %
-                        {'indent': -21.0, 'volume': 25, 'signal': False}, # %
-                        # {'indent': -40.0, 'volume': 20, 'signal': False}, # %
+                        {'indent': 0.0, 'volume': 14, 'signal': True},
+                        {'indent': -7.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -14.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -21.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -28.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -35.0, 'volume': 14, 'signal': False}, # %
                     ],                      
                 },
 

@@ -53,8 +53,8 @@ class UsersSettings():
                 "margin_type": "CROSSED",         # Тип маржи. Кросс-маржа → "CROSSED", Изолированная → "ISOLATED"
                 "quote_asset": "USDT",            # → валюта, в которой указана цена (например, USDT, USDC, BUSD)
                 "direction": 3,                   # 1 -- LONG, 2 --SHORT, 3 -- BOTH
-                "long_positions_limit": 2,        # количество одновременно открываемых лонгов
-                "short_positions_limit": 2,       # количество одновременно открываемых шортов
+                "long_positions_limit": 1,        # количество одновременно открываемых лонгов
+                "short_positions_limit": 1,       # количество одновременно открываемых шортов
             },
 
             "symbols_risk": {
@@ -72,7 +72,7 @@ class UsersSettings():
                 },
                 # ____________________ # -- здесь через запятую точечная настройка рисков для конкретного символа (как ниже)
                 "TAC": {
-                    "margin_size": 20.0,          # размер маржи в USDT (либо другой базовой валюте)
+                    "margin_size": 36.0,         # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
                     "tp": 0.7,  # TP             # %, float, положительное значение. Отключено -- None
@@ -130,7 +130,7 @@ class UsersSettings():
                 ("cron", {                                  # -- название стратегии
                     "is_active": True,
                     # "symbols": TokensTemplate().tokens_template,  # -- список токенов (выбрать из шаблона)
-                    "symbols": {"BTC", "TAC"},         # -- -//- (либо указать вручную)
+                    "symbols": {"TAC"},         # -- -//- (либо указать вручную)
                 }),
             ],
         },
