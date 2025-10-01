@@ -63,7 +63,7 @@ class UsersSettings():
                     "margin_size": 9.0,          # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
-                    "tp": 0.4,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp": 0.7,  # TP             # %, float, положительное значение. Отключено -- None
                     "tp_order_type": "LIMIT",    # MARKET | LIMIT
                     "is_martin": False,           # использовать Мартин Гейл
                     "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
