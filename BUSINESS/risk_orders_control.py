@@ -322,11 +322,13 @@ class Average:
             self.error_handler.debug_info_notes(f"{debug_label} Некорректный avg_progress_counter: {avg_progress_counter}")
             return avg_progress_counter, 0.0
 
-        if avg_progress_counter >= len(grid_orders):
+        len_grid_orders = len(grid_orders)
+
+        if len_grid_orders <= 1 or avg_progress_counter >= len_grid_orders:
             return avg_progress_counter, 0.0
 
-        step = grid_orders[avg_progress_counter]
-        indent = step.get("indent", 0.0)
+        step = grid_orders[min(avg_progress_counter, len_grid_orders - 1)]
+        indent = -abs(step.get("indent", 0.0))
         volume = step.get("volume", 0.0)
 
         avg_nPnl = nPnL_calc(cur_price, init_price, debug_label) * normalized_sign
@@ -335,7 +337,7 @@ class Average:
             new_progress = avg_progress_counter + 1
 
             # ограничим, чтобы не выйти за пределы
-            grid_index = min(new_progress, len(grid_orders) - 1)
+            grid_index = min(new_progress, len_grid_orders)
             open_by_signal = grid_orders[grid_index].get("signal", False)
 
             if not open_by_signal or avg_signal:
@@ -493,16 +495,16 @@ class RiskOrdersControl:
             # if tp_result:
             #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
 
-            trailing_result = self.trailing_sl_control.check_trailing_sl_and_report(
-                nPnl=cur_nPnl,
-                normalized_sign=normalized_sign,
-                settings_pos_options=settings_pos_options,
-                symbol_data=symbol_position_data,
-                debug_label=debug_label
-            )
+            # trailing_result = self.trailing_sl_control.check_trailing_sl_and_report(
+            #     nPnl=cur_nPnl,
+            #     normalized_sign=normalized_sign,
+            #     settings_pos_options=settings_pos_options,
+            #     symbol_data=symbol_position_data,
+            #     debug_label=debug_label
+            # )
 
-            if trailing_result:
-                return compose_signals(user_name, strategy_name, symbol, position_side, "is_trailing", client_session, binance_client)
+            # if trailing_result:
+            #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_trailing", client_session, binance_client)
 
             # sl_result = self.sl_control.check_sl_and_report(
             #     user_name=user_name,
