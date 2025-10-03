@@ -147,7 +147,7 @@ class UsersSettings():
             # },
 
             "proxy": {
-                "is_active": False,
+                "is_active": True,
                 "proxy_address": '154.218.20.43',
                 "proxy_port": '64630',
                 "proxy_login":'1FDJcwJR',
