@@ -159,8 +159,9 @@ class StrategySettings():
                         {'indent': -7.0, 'volume': 25, 'signal': False}, # %
                         {'indent': -14.0, 'volume': 25, 'signal': False}, # %
                         {'indent': -21.0, 'volume': 25, 'signal': False}, # %
-                        # {'indent': -28.0, 'volume': 14, 'signal': False}, # %
-                        # {'indent': -35.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -28.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -35.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -42.0, 'volume': 14, 'signal': False}, # %
                     ],                      
                 },
 
@@ -204,9 +205,10 @@ class StrategySettings():
                         {'indent': -7.0, 'volume': 25, 'signal': False}, # %
                         {'indent': -14.0, 'volume': 25, 'signal': False}, # %
                         {'indent': -21.0, 'volume': 25, 'signal': False}, # %
-                        # {'indent': -28.0, 'volume': 14, 'signal': False}, # %
-                        # {'indent': -35.0, 'volume': 14, 'signal': False}, # %
-                    ],                       
+                        {'indent': -28.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -35.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -42.0, 'volume': 14, 'signal': False}, # %
+                    ],                      
                 },
 
                 "exit_conditions": {                              
