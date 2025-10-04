@@ -59,11 +59,11 @@ class UsersSettings():
 
             "symbols_risk": {
                 # ____________________ # -- здесь через запятую точечная настройка рисков для конкретного символа (как ниже)
-                "UB": {
-                    "margin_size": 10.5,          # размер маржи в USDT (либо другой базовой валюте)
+                "TAC": {
+                    "margin_size": 5.25,         # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
-                    "tp": 0.7,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp": 0.75,  # TP             # %, float, положительное значение. Отключено -- None
                     "tp_order_type": "LIMIT",    # MARKET | LIMIT
                     "is_martin": False,           # использовать Мартин Гейл
                     "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
@@ -71,11 +71,45 @@ class UsersSettings():
                     "reverse": False              # reverse при Мартине
                 },
                 # ____________________ # -- здесь через запятую точечная настройка рисков для конкретного символа (как ниже)
-                "TAC": {
-                    "margin_size": 10.5,         # размер маржи в USDT (либо другой базовой валюте)
+                "UB": {
+                    "margin_size": 5.25,          # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
-                    "tp": 0.7,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp": 0.75,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp_order_type": "LIMIT",    # MARKET | LIMIT
+                    "is_martin": False,           # использовать Мартин Гейл
+                    "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
+                    "martin_multipliter": 2.5,   # множитель Мартин Гейла
+                    "reverse": False              # reverse при Мартине
+                },
+                "BR": {
+                    "margin_size": 5.25,          # размер маржи в USDT (либо другой базовой валюте)
+                    "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
+                    "sl": None,                  # %, float, отрицательное значение. Отключено -- None
+                    "tp": 0.75,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp_order_type": "LIMIT",    # MARKET | LIMIT
+                    "is_martin": False,           # использовать Мартин Гейл
+                    "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
+                    "martin_multipliter": 2.5,   # множитель Мартин Гейла
+                    "reverse": False              # reverse при Мартине
+                },
+                # ____________________ # -- здесь через запятую точечная настройка рисков для конкретного символа (как ниже)
+                "ARIA": {
+                    "margin_size": 5.25,         # размер маржи в USDT (либо другой базовой валюте)
+                    "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
+                    "sl": None,                  # %, float, отрицательное значение. Отключено -- None
+                    "tp": 1.0,  # TP             # %, float, положительное значение. Отключено -- None
+                    "tp_order_type": "LIMIT",    # MARKET | LIMIT
+                    "is_martin": False,           # использовать Мартин Гейл
+                    "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
+                    "martin_multipliter": 2.5,   # множитель Мартин Гейла
+                    "reverse": False              # reverse при Мартине
+                },
+                "PLAY": {
+                    "margin_size": 4.55,         # размер маржи в USDT (либо другой базовой валюте)
+                    "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
+                    "sl": None,                  # %, float, отрицательное значение. Отключено -- None
+                    "tp": 1.5,  # TP             # %, float, положительное значение. Отключено -- None
                     "tp_order_type": "LIMIT",    # MARKET | LIMIT
                     "is_martin": False,           # использовать Мартин Гейл
                     "force_martin": True,        # Перезаходим по Мартину, не дожидаясь нового сигнала
@@ -83,7 +117,7 @@ class UsersSettings():
                     "reverse": False              # reverse при Мартине
                 },
                 "ANY_COINS": {
-                    "margin_size": 10.5,          # размер маржи в USDT (либо другой базовой валюте)
+                    "margin_size": 5.25,          # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 20,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
                     "tp": 0.6,  # TP             # %, float, положительное значение. Отключено -- None
