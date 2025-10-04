@@ -74,7 +74,7 @@ class PositionCleaner():
         time_in_deal = cur_time - start_time if start_time else None
 
         body = {
-            # "user_name": user_name,
+            "user_name": user_name,
             "symbol": symbol,
             "pos_side": pos_side,
             "pnl_usdt": pnl_usdt,

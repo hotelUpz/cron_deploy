@@ -27,14 +27,15 @@ class MessageFormatter:
             head = f"{HEAD_LINE_TYPE}" * HEAD_WIDTH
             footer = f"{FOOTER_LINE_TYPE}" * FOOTER_WIDTH
 
+            user_name = body.get("user_name")
             symbol = body.get("symbol")
             # leverage = body.get("leverage")
             pos_side = body.get("pos_side")
 
             cur_time = milliseconds_to_datetime(body.get("cur_time"))
             
-            if marker == "signal":
-                pass
+            # if marker == "signal":
+            #     pass
             #     msg = (
             #         f"{head}\n"
             #         f"SIGNAL RECEIVED |[{symbol}]\n\n"
@@ -88,7 +89,7 @@ class MessageFormatter:
             #         f"REASON - {reason}\n\n"
             #         f"{footer}\n"
             #     )
-            elif marker == "report":
+            if marker == "report":
                 pnl_pct = body.get("pnl_pct")
                 pnl_usdt = body.get("pnl_usdt")
                 commission = body.get("commission", "N/A")
@@ -112,7 +113,7 @@ class MessageFormatter:
 
                 msg = (
                     f"{head}\n\n"
-                    f"[{symbol}][{pos_side}] | {emo}\n"
+                    f"[{user_name}][{symbol}][{pos_side}] | {emo}\n"
                     f"PNL {pnl_pct_str} | PNL {pnl_usdt_str} USDT\n"
                     f"COMISSION - {commission}\n"
                     f"CLOSING TIME - [{cur_time}]\n"
