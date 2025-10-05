@@ -197,7 +197,7 @@ class Core:
             token=TG_BOT_TOKEN,
             chat_ids=[TG_BOT_ID,],
             context=self.context,
-            info_handler=self.error_handler
+            info_handler=self.error_handler 
         )
 
         self.sync = Sync(
