@@ -483,15 +483,15 @@ class Core:
                     self.error_handler.debug_error_notes(err_msg, is_print=True)      
 
                 now = time.monotonic()
-                if now - last_instrume_time >= instrume_update_interval:
-                    try:
-                        self.context.symbol_info = await self.binance_public.get_exchange_info(self.public_session)
-                        if not self.context.symbol_info:
-                            self.error_handler.debug_error_notes(f"[ERROR] Failed to fetch instruments: {e}", is_print=True)
+                # if now - last_instrume_time >= instrume_update_interval:
+                #     try:
+                #         self.context.symbol_info = await self.binance_public.get_exchange_info(self.public_session)
+                #         if not self.context.symbol_info:
+                #             self.error_handler.debug_error_notes(f"[ERROR] Failed to fetch instruments: {e}", is_print=True)
 
-                    except Exception as e:
-                        self.error_handler.debug_error_notes(f"[ERROR] Failed to fetch instruments: {e}", is_print=True)
-                    last_instrume_time = now
+                #     except Exception as e:
+                #         self.error_handler.debug_error_notes(f"[ERROR] Failed to fetch instruments: {e}", is_print=True)
+                #     last_instrume_time = now
 
                 if now - last_write_logs_time >= write_logs_interval:
                     try:
