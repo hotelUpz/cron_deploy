@@ -750,3 +750,69 @@
 # Nik_volf_stoch_TRXUSDT_SHORT[Unexpected Error] Failed to update positions for volf_stoch: unsupported operand type(s) for *: 'NoneType' and 'float' Time: 2025-09-24 20:11:33
 # Nik_volf_stoch_TRXUSDT_SHORT[Unexpected Error] Failed to update positions for volf_stoch: unsupported operand type(s) for *: 'NoneType' and 'float' Time: 2025-09-24 20:11:35
 # Nik_volf_stoch_TRXUSDT_SHORT[Unexpected Error] Failed to update positions for volf_stoch: unsupported operand type(s) for *: 'NoneType' and 'float' Time: 2025-09-24 20:11:37
+
+
+
+
+        # while True:
+        #     cur_price = await get_cur_price(
+        #         session=self.publuc_connector.session,
+        #         # ws_price_data=self.context.ws_price_data,
+        #         ws_price_data={},
+        #         symbol="BTCUSDT",
+        #         get_hot_price=self.binance_public.get_hot_price
+        #     )
+        #     print(cur_price)
+        #     await asyncio.sleep(3.25)
+
+
+
+
+
+
+
+# import aiohttp
+# import asyncio
+# import inspect
+
+# class BINANCE_FUTURES_API:
+#     def __init__(self, proxy_url=None, error_handler=None):
+#         self.proxy_url = proxy_url
+#         self.error_handler = error_handler
+#         self.price_url = "https://fapi.binance.com/fapi/v1/ticker/price"
+
+#     async def get_hot_price(self, session: aiohttp.ClientSession, symbol: str) -> float | None:
+#         """Возвращает текущую (горячую) цену по символу с Binance Futures"""
+#         params = {'symbol': symbol.upper()}
+#         try:
+#             async with session.get(self.price_url, params=params, proxy=self.proxy_url) as response:
+#                 if response.status != 200:
+#                     self.error_handler.debug_info_notes(
+#                         f"Failed to fetch price for {symbol}: {response.status}"
+#                     )
+#                     return None
+#                 data = await response.json()
+#                 return float(data.get("price", 0.0))
+#         except Exception as ex:
+#             self.error_handler.debug_info_notes(
+#                 f"{ex} in {inspect.currentframe().f_code.co_name} at line {inspect.currentframe().f_lineno}"
+#             )
+#             return None
+
+
+# def my_error_handler():
+#     raise
+
+
+# async def foo():
+
+#     api = BINANCE_FUTURES_API(proxy_url=None, error_handler=my_error_handler)
+
+#     async with aiohttp.ClientSession() as session:
+#         price = await api.get_hot_price(session, "BTCUSDT")
+#         print(f"[BTCUSDT] Горячая цена: {price}")
+
+
+# asyncio.run(foo())
+
+

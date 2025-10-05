@@ -19,6 +19,7 @@ class BinancePublicApi:
 
         self.exchangeInfo_url = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
         self.klines_url = 'https://fapi.binance.com/fapi/v1/klines'    
+        self.price_url = "https://fapi.binance.com/fapi/v1/ticker/price"
 
         self.proxy_url = proxy_url
     
@@ -32,6 +33,24 @@ class BinancePublicApi:
                 return await response.json()  
         except Exception as ex:
             self.error_handler.debug_error_notes(f"{ex} in {inspect.currentframe().f_code.co_name} at line {inspect.currentframe().f_lineno}")
+
+    async def get_hot_price(self, session: aiohttp.ClientSession, symbol: str) -> float | None:
+        """Возвращает текущую (горячую) цену по символу с Binance Futures"""
+        params = {'symbol': symbol.upper()}
+        try:
+            async with session.get(self.price_url, params=params, proxy=self.proxy_url) as response:
+                if response.status != 200:
+                    self.error_handler.debug_error_notes(
+                        f"Failed to fetch price for {symbol}: {response.status}"
+                    )
+                    return None
+                data = await response.json()
+                return float(data.get("price", 0.0))
+        except Exception as ex:
+            self.error_handler.debug_error_notes(
+                f"{ex} in {inspect.currentframe().f_code.co_name} at line {inspect.currentframe().f_lineno}"
+            )
+            return None
 
     async def get_klines(
             self,

@@ -28,23 +28,23 @@ class Total_Logger:
     # debug    
     def debug_error_notes(self, data: str, is_print: bool=True):
         data += f" Time: {log_time()}"
-        self.debug_err_list.append(data)
+        # self.debug_err_list.append(data)
         # if is_print:
         print(data)
 
     def debug_info_notes(self, data: str, is_print: bool=False):
         data += f" Time: {log_time()}"
-        self.debug_info_list.append(data)
-        if is_print:
-            print(data)
+        # self.debug_info_list.append(data)
+        # if is_print:
+        print(data)
 
     # trading logs:
     def trades_info_notes(self, data: str, is_print: bool=False):
         if "time: " not in data.lower():
             data += f" (Time: {log_time()})"
-        self.trade_info_list.append(data)
-        if is_print:
-            print(data)
+        # self.trade_info_list.append(data)
+        # if is_print:
+        print(data)
 
     def _log_decor_notes(self, ex, is_print: bool=False):
         """Логирование исключений с указанием точного места ошибки."""

@@ -93,8 +93,8 @@ class RiskSet:
         sign = 1 if is_long else -1
 
         pos_data = self.context.position_vars[user_name][strategy_name][symbol][position_side]
-        avg_price = pos_data["avg_price"]
-        qty = pos_data["comul_qty"]
+        avg_price = pos_data.get("avg_price")
+        qty = pos_data.get("comul_qty")
         price_precision = self.context.position_vars[user_name][strategy_name][symbol].get("price_precision", 2)
 
         order_type = user_risk_cfg.get(key, {}).get(f"tp_order_type")
@@ -112,9 +112,25 @@ class RiskSet:
                 # print(f"{debug_label} → TP shift (activation + condition): {shift_pct}, target_price: {target_price}")
 
             else:
+                # === DEBUG перед вычислением target_price ===
+                self.error_handler.debug_info_notes(
+                    f"[DEBUG][{symbol}] target calc params:"
+                )
+                self.error_handler.debug_info_notes(f"    avg_price      = {avg_price}")
+                self.error_handler.debug_info_notes(f"    condition_pct  = {condition_pct}")
+                self.error_handler.debug_info_notes(f"    suffix         = {suffix}")
+                self.error_handler.debug_info_notes(f"    sign           = {sign}")
+                self.error_handler.debug_info_notes(f"    price_precision= {price_precision}")
+
+                # === Вычисления ===
                 shift_pct = condition_pct if suffix == "tp" else -abs(condition_pct)
+                if not avg_price:
+                    avg_price = pos_data.get("entry_price")
                 target_price = round(avg_price * (1 + sign * shift_pct / 100), price_precision)
-                # print(f"{debug_label} → fallback shift_pct: {shift_pct}, target_price: {target_price}")
+
+                # === DEBUG после вычисления ===
+                self.error_handler.debug_info_notes(f"    shift_pct      = {shift_pct}")
+                self.error_handler.debug_info_notes(f"    target_price   = {target_price}")
 
         except Exception as e:
             print(f"{debug_label} ❌ Error calculating target_price: {e}")
@@ -265,14 +281,14 @@ class HandleOrders:
         error_handler: ErrorHandler,
         pos_utils: PositionUtils,
         risk_set: RiskSet,
-        get_klines: Callable,
+        get_hot_price: Callable,
         get_cur_price: Callable
     ):
         error_handler.wrap_foreign_methods(self)
         self.context = context
         self.error_handler = error_handler
         self.pos_utils = pos_utils
-        self.get_klines = get_klines
+        self.get_hot_price = get_hot_price
         self.get_cur_price = get_cur_price
         # self.sync_pos_all_users = sync_pos_all_users
         self.risk_set = risk_set
@@ -397,7 +413,29 @@ class HandleOrders:
                     )
                 
                 if action in {"is_opening", "is_avg"}:
-                    await asyncio.sleep(2.0)
+                    # ждем, пока контекст обновит in_position и avg_price
+                    for attempt in range(60):  # максимум 20 секунд
+                        pos_data = self.context.position_vars.get(user_name, {}) \
+                            .get(strategy_name, {}) \
+                            .get(symbol, {}) \
+                            .get(position_side, {})
+                        avg_price = pos_data.get("avg_price")
+                        in_position = pos_data.get("in_position")
+
+                        if in_position and avg_price:
+                            self.error_handler.debug_info_notes(
+                                f"[READY][{debug_label}] pos_data обновлены на попытке {attempt+1}: "
+                                f"avg_price={avg_price}, in_position={in_position}"
+                            )
+                            break
+                        await asyncio.sleep(0.5)
+                    else:
+                        # цикл не прервался — не дождались обновления
+                        self.error_handler.debug_error_notes(
+                            f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
+                            f"(avg_price={avg_price}, in_position={in_position})"
+                        )
+
                     await self.risk_set.place_all_risk_orders(
                         session=client_session,
                         user_name=user_name,
@@ -439,12 +477,16 @@ class HandleOrders:
                     symbol_risk_key = task["symbol"] if task["symbol"] in symbols_risk else "ANY_COINS"
                     leverage = symbols_risk.get(symbol_risk_key, {}).get("leverage", 1)
 
-                    cur_price = await self.get_cur_price(
-                        session=task["client_session"],
-                        ws_price_data=self.context.ws_price_data,
-                        symbol=task["symbol"],
-                        get_klines=self.get_klines
-                    )
+                    for _ in range(5):  # 1 + 3 попытки
+                        cur_price = await self.get_cur_price(
+                            session=task["client_session"],
+                            ws_price_data=self.context.ws_price_data,
+                            symbol=task["symbol"],
+                            get_hot_price=self.get_hot_price
+                        )
+                        if cur_price:
+                            break
+                        await asyncio.sleep(1)
 
                     pos_martin = (
                         self.context.position_vars
@@ -460,7 +502,7 @@ class HandleOrders:
                     if margin_size is None:
                         margin_size = base_margin               
 
-                    print(f"{debug_label}: margin_size: {margin_size} usdt")
+                    print(f"{debug_label}: total margin: {margin_size} usdt")
                     qty = self.pos_utils.size_calc(
                         margin_size=margin_size,
                         entry_price=cur_price,

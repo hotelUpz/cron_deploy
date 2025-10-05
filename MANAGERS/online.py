@@ -219,6 +219,6 @@ class WebSocketManager:
             else:
                 await self.stop_ws_process()
 
-    async def reset_existing_prices(self, symbols: Iterable[str]) -> None:
-        async with self.context.ws_async_lock:
-            self.context.ws_price_data.update({s: {"close": None} for s in symbols})
+    # async def reset_existing_prices(self, symbols: Iterable[str]) -> None:
+    #     async with self.context.ws_async_lock:
+    #         self.context.ws_price_data.update({s: {"close": None} for s in symbols})

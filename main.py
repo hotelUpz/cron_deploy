@@ -89,16 +89,14 @@ async def get_cur_price(
         session,
         ws_price_data: dict,
         symbol: str,
-        get_klines: callable,
+        get_hot_price: callable,
     ):
     """
     Получение текущей цены символа.
     """
     cur_price = ws_price_data.get(symbol, {}).get("close")
     if not cur_price:
-        df = await get_klines(session, symbol, "1m", 1)
-        if validate_dataframe(df):
-            cur_price = df["Close"].iloc[-1]
+        return await get_hot_price(session, symbol)
     return cur_price
 
 
@@ -189,7 +187,7 @@ class Core:
             error_handler=self.error_handler,
             pos_utils=self.pos_utils,
             risk_set=self.risk_order_patterns,
-            get_klines=self.binance_public.get_klines,
+            get_hot_price=self.binance_public.get_hot_price,
             get_cur_price=get_cur_price
         )
 
@@ -340,7 +338,7 @@ class Core:
         write_logs_interval = 5.0
 
         last_instrume_time = time.monotonic()
-        last_write_logs_time = time.monotonic()
+        last_write_logs_time = time.monotonic()      
 
         while not self.context.stop_bot:
             try:
@@ -429,7 +427,7 @@ class Core:
                                         opposite = {"LONG": "SHORT", "SHORT": "LONG"}
                                         position_side = opposite[position_side]
 
-                                    debug_label = f"{user_name}_{strategy_number}_{symbol}_{position_side}"
+                                    debug_label = f"{user_name}_{symbol}_{position_side}"
                                     self.error_handler.trades_info_notes(
                                         f"[{debug_label}]. 🚀 Открываем позицию по сигналу! ",
                                         True

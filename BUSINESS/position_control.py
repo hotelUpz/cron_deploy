@@ -273,7 +273,7 @@ class PositionsUpdater(PositionCleaner):
                 success_closed = False
                 if position_amt > 0:    
                     old_amt = symbol_data.get("comul_qty")  
-                    if old_amt and position_amt < old_amt / 3:                        
+                    if old_amt and position_amt < old_amt / 4:                        
                         symbol_data.update({"comul_qty": position_amt})
                         is_partly_closed = True
                     else:
