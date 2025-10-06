@@ -287,7 +287,7 @@ MAX_LOG_LINES: int = 1001                  # количество строк в 
 
 # --------- SYSTEM ----------------
 USE_CACHE: bool = False                    # использовать кеш для восстановления позиции. При деплое на сервер можно отключить 
-POS_UPDATE_FREQUENCY: float = 0.75         # seconds. частота обновления позиций при контроле состояния позиций
+POS_UPDATE_FREQUENCY: float = 1.0         # seconds. частота обновления позиций при контроле состояния позиций
 MAIN_CYCLE_FREQUENCY: float = 1.0          # seconds. частота работы главного цикла
 
 # --- STYLES ---
