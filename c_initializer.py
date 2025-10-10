@@ -269,6 +269,8 @@ class PositionVarsSetup:
             "offset": 0.0,
             "activation_percent": 0.0,
             "process_volume": 0.0,
+            "is_tp": False,
+            "is_sl": False,
             "c_time": None
         }
             

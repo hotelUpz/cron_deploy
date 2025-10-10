@@ -111,7 +111,7 @@ class TP:
 
         return nPnl >= tp
 
-    def check_tp_and_report(
+    def check_tp(
         self,
         user_name: str,
         strategy_name: str,
@@ -138,7 +138,7 @@ class TP:
         take_profit = (
             dinamic_tp
             if dinamic_tp is not None
-            else symbols_risk.get(key_symb, {}).get("tp")
+            else symbols_risk.get(key_symb, {}).get("fallback_tp")
         )
 
         if take_profit is None:
@@ -150,15 +150,9 @@ class TP:
         if not self.tp_control(take_profit, signed_nPnl, debug_label):
             return None
 
-        unique_key = f"{user_name}_{strategy_name}_{symbol}_{position_side}_is_tp"
-        if self.context.anti_double_close.get(unique_key, False):
-            return None
-
-        self.context.anti_double_close[unique_key] = True
-
         # Логируем действие
         self.error_handler.trades_info_notes(
-            f"[{user_name}][{strategy_name}][{symbol}][{position_side}]. '🏆 Закрываем позицию по тейк-профиту.'. ",
+            f"[{user_name}][{strategy_name}][{symbol}][{position_side}]. '🏆 Закрываем позицию по резервному тейк-профиту.'. ",
             True
         )
 
@@ -198,7 +192,7 @@ class SL:
 
         return nPnl <= stop_loss
 
-    def check_sl_and_report(
+    def check_sl(
         self,
         user_name: str,
         strategy_name: str,
@@ -454,6 +448,9 @@ class RiskOrdersControl:
             if not symbol_position_data:
                 self.error_handler.debug_error_notes(f"No position data for {debug_label}")
                 return
+            
+            if not symbol_position_data.get("in_position"):
+                return
 
             normalized_sign = {"LONG": 1, "SHORT": -1}.get(position_side)
             if normalized_sign is None:
@@ -480,20 +477,20 @@ class RiskOrdersControl:
             
             # print(f"{debug_label}: nPnl: {cur_nPnl}")
 
-            # Вместо контроля тейка стоит лимитка...
-            # tp_result = self.tp_control.check_tp_and_report(
-            #     user_name=user_name,
-            #     strategy_name=strategy_name,
-            #     symbol=symbol,
-            #     position_side=position_side,
-            #     nPnl=cur_nPnl,
-            #     normalized_sign=normalized_sign,
-            #     symbols_risk=symbols_risk,
-            #     debug_label=debug_label
-            # )
+            tp_result = self.tp_control.check_tp(
+                user_name=user_name,
+                strategy_name=strategy_name,
+                symbol=symbol,
+                position_side=position_side,
+                nPnl=cur_nPnl,
+                normalized_sign=normalized_sign,
+                symbols_risk=symbols_risk,
+                debug_label=debug_label
+            )
             
-            # if tp_result:
-            #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
+            if tp_result and not symbol_position_data.get("is_tp"):
+                symbol_position_data["is_tp"] = True
+                return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
 
             # trailing_result = self.trailing_sl_control.check_trailing_sl_and_report(
             #     nPnl=cur_nPnl,
@@ -506,7 +503,7 @@ class RiskOrdersControl:
             # if trailing_result:
             #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_trailing", client_session, binance_client)
 
-            # sl_result = self.sl_control.check_sl_and_report(
+            # sl_result = self.sl_control.check_sl(
             #     user_name=user_name,
             #     strategy_name=strategy_name,
             #     symbol=symbol,
@@ -518,19 +515,20 @@ class RiskOrdersControl:
             #     debug_label=debug_label
             # )
 
-            # if sl_result:
+            # if sl_result and not symbol_position_data.get("is_sl"):
+            #     symbol_position_data["is_sl"] = True
             #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
 
-            signal_exit_result = self.signal_exit_control.check_signal_exit(
-                close_signal=close_signal,
-                cur_nPnl=cur_nPnl,
-                normalized_sign=normalized_sign,
-                settings_pos_options=settings_pos_options,
-                debug_label=debug_label
-            )
+            # signal_exit_result = self.signal_exit_control.check_signal_exit(
+            #     close_signal=close_signal,
+            #     cur_nPnl=cur_nPnl,
+            #     normalized_sign=normalized_sign,
+            #     settings_pos_options=settings_pos_options,
+            #     debug_label=debug_label
+            # )
 
-            if signal_exit_result:              
-                return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
+            # if signal_exit_result:              
+            #     return compose_signals(user_name, strategy_name, symbol, position_side, "is_closing", client_session, binance_client)
 
             avg_result = self.avg_control.check_avg_and_report(
                 cur_price=cur_price,
