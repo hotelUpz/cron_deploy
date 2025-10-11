@@ -35,11 +35,13 @@ class RiskSet:
         debug_label = f"[{user_name}][{strategy_name}][{symbol}][{position_side}]"
         pos_data = self.context.position_vars[user_name][strategy_name][symbol][position_side]
         order_id = pos_data.get(f"{suffix}_order_id")
+
         if not order_id:
             self.error_handler.trades_info_notes(
                 f"[INFO]{debug_label}[{suffix.upper()}]: отсутствует ID ордера.", False
             )
             return True  # Считаем успешным, так как отменять нечего
+
         response = await cancel_order_by_id(
             session=session,
             strategy_name=strategy_name,
@@ -47,6 +49,7 @@ class RiskSet:
             order_id=order_id,
             suffix=suffix
         )
+
         if self.validate.validate_cancel_risk_response(response, suffix, debug_label):
             pos_data[f"{suffix}_order_id"] = None
             return True
@@ -68,19 +71,25 @@ class RiskSet:
         debug_label = f"[{user_name}][{strategy_name}][{symbol}][{position_side}]"
         user_risk_cfg = self.context.total_settings[user_name]["symbols_risk"]
         key = symbol if symbol in user_risk_cfg else "ANY_COINS"
+
         dinamic_condition_pct = (
             self.context.dinamik_risk_data
             .get(user_name, {})
             .get(symbol, {})
             .get(suffix)
         )
+
         condition_pct = (
-            dinamic_condition_pct if dinamic_condition_pct is not None else user_risk_cfg.get(key, {}).get(suffix.lower())
+            dinamic_condition_pct
+            if dinamic_condition_pct is not None
+            else user_risk_cfg.get(key, {}).get(suffix.lower())
         )
+
         self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} condition_pct: {condition_pct}")
         if condition_pct is None:
-            self.error_handler.trades_info_notes(f"[INFO]{debug_label}: Не задан {suffix.upper()} процент.", False)
+            self.error_handler.debug_info_notes(f"[INFO][{debug_label}] Не задан {suffix.upper()} процент.")
             return True  # Считаем успешным, так как ордер не нужен
+
         is_long = position_side == "LONG"
         sign = 1 if is_long else -1
         pos_data = self.context.position_vars[user_name][strategy_name][symbol][position_side]
@@ -88,19 +97,26 @@ class RiskSet:
         qty = pos_data.get("comul_qty")
         price_precision = self.context.position_vars[user_name][strategy_name][symbol].get("price_precision", 2)
         order_type = user_risk_cfg.get(key, {}).get(f"tp_order_type")
+
         try:
             if suffix.lower() == "sl" and offset:
                 target_price = round(avg_price * (1 + sign * offset / 100), price_precision)
+                self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] SL offset: {offset}, target_price: {target_price}")
             elif suffix.lower() == "tp" and is_move_tp:
                 shift_pct = activation_percent + condition_pct
                 target_price = round(avg_price * (1 + sign * shift_pct / 100), price_precision)
+                self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] TP shift (activation + condition): {shift_pct}, target_price: {target_price}")
             else:
                 shift_pct = condition_pct if suffix == "tp" else -abs(condition_pct)
                 target_price = round(avg_price * (1 + sign * shift_pct / 100), price_precision)
+                self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} shift_pct: {shift_pct}, target_price: {target_price}")
         except Exception as e:
-            self.error_handler.debug_error_notes(f"{debug_label} ❌ Error calculating target_price: {e}")
+            self.error_handler.debug_error_notes(f"[ERROR][{debug_label}] Error calculating target_price: {e}")
             return False
+
         side = "SELL" if is_long else "BUY"
+        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Placing {suffix.upper()} order: side={side}, qty={qty}, price={target_price}")
+
         try:
             response = await place_risk_order(
                 session=session,
@@ -114,14 +130,16 @@ class RiskSet:
                 order_type=order_type
             )
         except Exception as e:
-            self.error_handler.debug_error_notes(f"{debug_label} ❌ Error placing {suffix.upper()} order: {e}")
+            self.error_handler.debug_error_notes(f"[ERROR][{debug_label}] Error placing {suffix.upper()} order: {e}")
             return False
+
         validated = self.validate.validate_risk_response(response, suffix.upper(), debug_label)
+        self.error_handler.debug_info_notes(f"[VALIDATE][{debug_label}] {suffix.upper()} validation result: {validated}")
         if validated:
             success, order_id = validated
             if success:
                 pos_data[f"{suffix.lower()}_order_id"] = order_id
-                self.error_handler.debug_info_notes(f"{debug_label} ✅ Order placed: {suffix.lower()}_order_id = {order_id}")
+                self.error_handler.debug_info_notes(f"[SUCCESS][{debug_label}] {suffix.upper()} order placed: order_id={order_id}")
                 return True
         return False
 
@@ -134,28 +152,22 @@ class RiskSet:
         position_side: str,
         risk_suffix_list: List,  # ['tp', 'sl']
         cancel_order_by_id: Callable,
-    ) -> bool:
-        """ Отменяет оба ордера (SL и TP) параллельно. """
-        for attempt in range(2):
-            cancelled = await asyncio.gather(*[
-                self._cancel_risk_order(
-                    session, user_name, strategy_name, symbol, position_side, cancel_order_by_id, suffix
-                ) for suffix in risk_suffix_list
-            ])
-            results = dict(zip(risk_suffix_list, cancelled))
-            self.error_handler.debug_info_notes(
-                f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] Attempt {attempt + 1}: {results}"
+    ):
+        """
+        Отменяет оба ордера (SL и TP) параллельно.
+        """
+        return await asyncio.gather(*[
+            self._cancel_risk_order(
+                session,
+                user_name,
+                strategy_name,
+                symbol,
+                position_side,
+                cancel_order_by_id,
+                suffix
             )
-            if all(x is not False for x in cancelled):
-                self.error_handler.debug_info_notes(
-                    f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders processed on attempt {attempt + 1}"
-                )
-                return True
-            await asyncio.sleep(0.15)
-        self.error_handler.debug_error_notes(
-            f"[INFO][{user_name}][{strategy_name}][{symbol}][{position_side}] Не удалось обработать риск ордера после 2 попыток: {results}"
-        )
-        return False
+            for suffix in risk_suffix_list
+        ])
 
     async def place_all_risk_orders(
         self,
@@ -167,56 +179,27 @@ class RiskSet:
         risk_suffix_list: List,  # ['tp', 'sl']
         place_risk_order: Callable,
         offset: float = None,
-        activation_percent: float = float('inf'),
+        activation_percent: float = None,
         is_move_tp: bool = False,
-    ) -> bool:
-        """ Размещает оба ордера (SL и TP) параллельно. """
-        for attempt in range(2):
-            placed = await asyncio.gather(*[
-                self._place_risk_order(
-                    session, user_name, strategy_name, symbol, position_side, suffix,
-                    place_risk_order, offset, activation_percent, is_move_tp
-                ) for suffix in risk_suffix_list
-            ])
-            results = dict(zip(risk_suffix_list, placed))
-            self.error_handler.debug_info_notes(
-                f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] Attempt {attempt + 1}: {results}"
+    ):
+        """
+        Размещает оба ордера (SL и TP) параллельно.
+        """
+        return await asyncio.gather(*[
+            self._place_risk_order(
+                session,
+                user_name,
+                strategy_name,
+                symbol,
+                position_side,
+                suffix,
+                place_risk_order,
+                offset,
+                activation_percent,
+                is_move_tp
             )
-            # Проверяем, все ли ордера обработаны (True или нефатальная ошибка)
-            all_processed = True
-            for suffix, result in results.items():
-                if result is False:
-                    # Проверяем, была ли это нефатальная ошибка
-                    response = await place_risk_order(
-                        session=session,
-                        strategy_name=strategy_name,
-                        symbol=symbol,
-                        qty=self.context.position_vars[user_name][strategy_name][symbol][position_side].get("comul_qty"),
-                        side="SELL" if position_side == "LONG" else "BUY",
-                        position_side=position_side,
-                        target_price=self.context.position_vars[user_name][strategy_name][symbol][position_side].get("avg_price"),
-                        suffix=suffix,
-                        order_type=self.context.total_settings[user_name]["symbols_risk"].get(
-                            symbol if symbol in self.context.total_settings[user_name]["symbols_risk"] else "ANY_COINS", {}
-                        ).get("tp_order_type")
-                    )
-                    if response and isinstance(response[0], dict) and response[0].get("code") == -2022:
-                        self.error_handler.trades_info_notes(
-                            f"[INFO][{user_name}][{strategy_name}][{symbol}][{position_side}] {suffix.upper()} rejected: {response[0].get('msg')}. Likely position closed or invalid.", False
-                        )
-                        results[suffix] = True  # Считаем нефатальную ошибку успешной
-                    else:
-                        all_processed = False
-            if all_processed:
-                self.error_handler.debug_info_notes(
-                    f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders processed on attempt {attempt + 1}: {results}"
-                )
-                return True
-            await asyncio.sleep(0.15)
-        self.error_handler.debug_error_notes(
-            f"[CRITICAL][{user_name}][{strategy_name}][{symbol}][{position_side}] Не удалось установить риск ордера после 2 попыток: {results}"
-        )
-        return False
+            for suffix in risk_suffix_list
+        ])
 
     async def replace_sl(
         self,
@@ -234,19 +217,34 @@ class RiskSet:
     ) -> None:
         try:
             cancelled = await self.cancel_all_risk_orders(
-                session, user_name, strategy_name, symbol, position_side, ["tp", "sl"], cancel_order_by_id
+                session,
+                user_name,
+                strategy_name,
+                symbol,
+                position_side,
+                ["tp", "sl"],
+                cancel_order_by_id
             )
-            if cancelled:
-                self.error_handler.debug_info_notes(f"[REPLACE][{debug_label}] Cancelled SL/TP")
+            self.error_handler.debug_info_notes(f"[CANCEL][{debug_label}] Cancelled SL/TP: {cancelled}")
+
             risk_suffics_list = ['sl']
             if is_move_tp:
                 risk_suffics_list.append('tp')
+
             placed = await self.place_all_risk_orders(
-                session, user_name, strategy_name, symbol, position_side, risk_suffics_list,
-                place_risk_order, offset, activation_percent, is_move_tp
+                session,
+                user_name,
+                strategy_name,
+                symbol,
+                position_side,
+                risk_suffics_list,
+                place_risk_order,
+                offset,
+                activation_percent,
+                is_move_tp
             )
-            if not placed:
-                self.error_handler.debug_error_notes(f"[REPLACE][{debug_label}] Failed to place new SL/TP")
+            self.error_handler.debug_info_notes(f"[PLACE][{debug_label}] Placed SL/TP: {placed}")
+
         except aiohttp.ClientError as e:
             self.error_handler.debug_error_notes(f"[HTTP Error][{debug_label}] Failed to replace SL/TP: {e}")
             raise
@@ -467,7 +465,7 @@ class HandleOrders:
                                 self.error_handler.debug_error_notes(
                                     f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
                                 )
-                                return
+
                         if action == "is_closing":
                             return
                         if action in {"is_opening", "is_avg"}:
