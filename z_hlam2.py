@@ -1268,3 +1268,10 @@
         #     return None
 
         # self.context.anti_double_close[unique_key] = True
+
+
+                            # if all(cancelled):
+                            #     break
+                        #     await asyncio.sleep(0.15)
+                        # else:
+                        #     self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 3-х попыток ")

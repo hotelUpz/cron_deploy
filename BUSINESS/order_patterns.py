@@ -232,208 +232,230 @@ class HandleOrders:
         await asyncio.gather(*tasks)
 
     async def _process_user_tasks(self, user_tasks: List[dict]):
-        # Группировка задач юзера по символам для параллелизма LONG/SHORT
-        symbol_groups = defaultdict(list)
-        for task in user_tasks:
-            symbol_groups[task["symbol"]].append(task)
+        # Извлекаем уникальные символы
+        symbols = sorted(set(task["symbol"] for task in user_tasks))
+        self.error_handler.debug_info_notes(f"[SYMBOLS] Processing symbols: {symbols}")
 
-        # Обрабатываем символы последовательно с контролем времени
-        for symbol, tasks in symbol_groups.items():
+        # Обрабатываем каждый символ последовательно с контролем времени
+        for symbol in symbols:
             start_time = time.monotonic()  # Замеряем время в начале итерации
             sub_tasks = []
-            for task in tasks:
-                try:
-                    action = task["status"]
-                    position_side = task["position_side"]
-                    debug_label = task["debug_label"]
-                    if action == "is_trailing":
-                        async def trailing_task():
-                            strategy_settings = self.context.strategy_notes[task["strategy_name"]][task["position_side"]]
-                            is_move_tp = strategy_settings.get("exit_conditions", {}).get("trailing_sl", {}).get("is_move_tp", False)
-                            await self.risk_set.replace_sl(
-                                task["client_session"],
-                                task["user_name"],
-                                task["strategy_name"],
-                                task["symbol"],
-                                task["position_side"],
-                                is_move_tp,
-                                task["position_data"].get("offset"),
-                                task["position_data"].get("activation_percent"),
-                                task["binance_client"].cancel_order_by_id,
-                                task["binance_client"].place_risk_order,
-                                task["debug_label"]
-                            )
-                        sub_tasks.append(trailing_task())
+            sync_event = asyncio.Event()  # Для синхронизации LONG/SHORT перед make_order
+
+            # Собираем все задачи для текущего символа
+            symbol_tasks = [task for task in user_tasks if task["symbol"] == symbol]
+            self.error_handler.debug_info_notes(f"[SYMBOL][{symbol}] Found {len(symbol_tasks)} tasks")
+
+            for task in symbol_tasks:
+                action = task["status"]
+                position_side = task["position_side"]
+                debug_label = task["debug_label"]
+                if action == "is_trailing":
+                    async def trailing_task(task=task):  # Привязываем task
+                        strategy_settings = self.context.strategy_notes[task["strategy_name"]][task["position_side"]]
+                        is_move_tp = strategy_settings.get("exit_conditions", {}).get("trailing_sl", {}).get("is_move_tp", False)
+                        await self.risk_set.replace_sl(
+                            task["client_session"],
+                            task["user_name"],
+                            task["strategy_name"],
+                            task["symbol"],
+                            task["position_side"],
+                            is_move_tp,
+                            task["position_data"].get("offset"),
+                            task["position_data"].get("activation_percent"),
+                            task["binance_client"].cancel_order_by_id,
+                            task["binance_client"].place_risk_order,
+                            task["debug_label"]
+                        )
+                    sub_tasks.append(trailing_task)
+                    continue
+                if action == "is_closing":
+                    side = "SELL" if position_side == "LONG" else "BUY"
+                    qty = task["position_data"].get("comul_qty", 0.0)
+                elif action in ["is_opening", "is_avg"]:
+                    side = "BUY" if position_side == "LONG" else "SELL"
+                    symbols_risk = self.context.total_settings[task["user_name"]]["symbols_risk"]
+                    symbol_risk_key = task["symbol"] if task["symbol"] in symbols_risk else "ANY_COINS"
+                    leverage = symbols_risk.get(symbol_risk_key, {}).get("leverage", 1)
+                    cur_price = None
+                    for _ in range(5):
+                        cur_price = await self.get_cur_price(
+                            session=task["client_session"],
+                            ws_price_data=self.context.ws_price_data,
+                            symbol=task["symbol"],
+                            get_hot_price=self.get_hot_price
+                        )
+                        if cur_price:
+                            break
+                        await asyncio.sleep(0.25)
+                    if not cur_price:
+                        self.error_handler.debug_error_notes(
+                            f"[CRITICAL][{debug_label}] не удалось получить цену при выставлении ордера (is_opening, is_avg)."
+                        )
                         continue
-                    if action == "is_closing":
-                        side = "SELL" if position_side == "LONG" else "BUY"
-                        qty = task["position_data"].get("comul_qty", 0.0)
-                    elif action in ["is_opening", "is_avg"]:
-                        side = "BUY" if position_side == "LONG" else "SELL"
-                        symbols_risk = self.context.total_settings[task["user_name"]]["symbols_risk"]
-                        symbol_risk_key = task["symbol"] if task["symbol"] in symbols_risk else "ANY_COINS"
+                    pos_martin = (
+                        self.context.position_vars
+                        .setdefault(task["user_name"], {})
+                        .setdefault(task["strategy_name"], {})
+                        .setdefault(task["symbol"], {})
+                        .setdefault("martin", {})
+                        .setdefault(position_side, {})
+                    )
+                    base_margin = symbols_risk.get(symbol_risk_key, {}).get("margin_size", 0.0)
+                    margin_size = pos_martin.get("cur_margin_size")
+                    if margin_size is None:
+                        margin_size = base_margin
+                    print(f"{debug_label}: total margin: {margin_size} usdt")
+                    qty = self.pos_utils.size_calc(
+                        margin_size=margin_size,
+                        entry_price=cur_price,
+                        leverage=leverage,
+                        volume_rate=task["position_data"].get("process_volume"),
+                        precision=task["qty_precision"],
+                        dubug_label=debug_label
+                    )
+                else:
+                    self.error_handler.debug_info_notes(f"{debug_label} Неизвестный маркер ордера. ")
+                    continue
+                if not qty or qty <= 0:
+                    self.error_handler.debug_info_notes(f"{debug_label} Нулевой размер позиции — пропуск")
+                    continue
+                async def trade_task(task=task, side=side, qty=qty):  # Привязываем task, side, qty
+                    try:
+                        user_name = task["user_name"]
+                        symbol = task["symbol"]
+                        strategy_name = task["strategy_name"]
+                        position_side = task["position_side"]
+                        debug_label = task["debug_label"]
+                        client_session = task["client_session"]
+                        binance_client: BinancePrivateApi = task["binance_client"]
+                        symbols_risk = self.context.total_settings[user_name]["symbols_risk"]
+                        symbol_risk_key = symbol if symbol in symbols_risk else "ANY_COINS"
+                        action = task["status"]
+                        position_data = task["position_data"]
                         leverage = symbols_risk.get(symbol_risk_key, {}).get("leverage", 1)
-                        cur_price = None
-                        for _ in range(5):
-                            cur_price = await self.get_cur_price(
-                                session=task["client_session"],
-                                ws_price_data=self.context.ws_price_data,
-                                symbol=task["symbol"],
-                                get_hot_price=self.get_hot_price
-                            )
-                            if cur_price:
-                                break
-                            await asyncio.sleep(0.25)
-                        if not cur_price:
-                            self.error_handler.debug_error_notes(
-                                f"[CRITICAL][{debug_label}] не удалось получить цену при выставлении ордера (is_opening, is_avg)."
-                            )
-                            continue
-                        pos_martin = (
-                            self.context.position_vars
-                            .setdefault(task["user_name"], {})
-                            .setdefault(task["strategy_name"], {})
-                            .setdefault(task["symbol"], {})
-                            .setdefault("martin", {})
-                            .setdefault(position_side, {})
-                        )
-                        base_margin = symbols_risk.get(symbol_risk_key, {}).get("margin_size", 0.0)
-                        margin_size = pos_martin.get("cur_margin_size")
-                        if margin_size is None:
-                            margin_size = base_margin
-                        print(f"{debug_label}: total margin: {margin_size} usdt")
-                        qty = self.pos_utils.size_calc(
-                            margin_size=margin_size,
-                            entry_price=cur_price,
-                            leverage=leverage,
-                            volume_rate=task["position_data"].get("process_volume"),
-                            precision=task["qty_precision"],
-                            dubug_label=debug_label
-                        )
-                    else:
-                        self.error_handler.debug_info_notes(f"{debug_label} Неизвестный маркер ордера. ")
-                        continue
-                    if not qty or qty <= 0:
-                        self.error_handler.debug_info_notes(f"{debug_label} Нулевой размер позиции — пропуск")
-                        continue
-                    async def trade_task():
-                        try:
-                            user_name = task["user_name"]
-                            symbol = task["symbol"]
-                            strategy_name = task["strategy_name"]
-                            position_side = task["position_side"]
-                            debug_label = task["debug_label"]
-                            client_session = task["client_session"]
-                            binance_client: BinancePrivateApi = task["binance_client"]
-                            symbols_risk = self.context.total_settings[user_name]["symbols_risk"]
-                            symbol_risk_key = symbol if symbol in symbols_risk else "ANY_COINS"
-                            action = task["status"]
-                            position_data = task["position_data"]
-                            leverage = symbols_risk.get(symbol_risk_key, {}).get("leverage", 1)
-                            margin_type = symbols_risk.get(symbol_risk_key, {}).get("margin_type", "CROSSED")
-                            last_known_label = self.last_debug_label \
-                                .setdefault(user_name, {}) \
-                                .setdefault(symbol, {}) \
-                                .setdefault(position_side, None)
-                            pos = self.context.position_vars.get(user_name, {}) \
-                                .get(strategy_name, {}) \
-                                .get(symbol, {}) \
-                                .get(position_side)
-                            in_position = pos and pos.get("in_position")
-                            if action == "is_closing":
-                                if not in_position:
-                                    return
-                            elif action == "is_opening":
-                                if in_position:
-                                    return
-                            if debug_label != last_known_label:
-                                await binance_client.set_margin_type(client_session, strategy_name, symbol, margin_type)
-                                await binance_client.set_leverage(client_session, strategy_name, symbol, leverage)
-                                self.last_debug_label[user_name][symbol][position_side] = debug_label
-                                
-                            last_avg_price = pos.get("avg_price", None) if pos else None
-                            market_order_result = await binance_client.make_order(
-                                session=client_session,
-                                strategy_name=strategy_name,
-                                symbol=symbol,
-                                qty=qty,
-                                side=side,
-                                position_side=position_side,
-                                market_type="MARKET"
-                            )
-                            success, validated = self.risk_set.validate.validate_market_response(
-                                market_order_result[0], debug_label
-                            )
-                            if not success and action == "is_opening":
-                                self.error_handler.debug_info_notes(
-                                    f"[INFO][{debug_label}] не удалось нормально открыть позицию.", is_print=True
-                                )
+                        core = self.context.total_settings.get(user_name, {}).get("core")
+                        margin_type = core.get("margin_type", "CROSSED")
+
+                        suffics_list = []
+
+                        if bool(symbols_risk.get(symbol_risk_key, {}).get("sl")):
+                            suffics_list.append("sl")
+                        if bool(symbols_risk.get(symbol_risk_key, {}).get("tp")):
+                            suffics_list.append("tp")
+
+                        last_known_label = self.last_debug_label \
+                            .setdefault(user_name, {}) \
+                            .setdefault(symbol, {}) \
+                            .setdefault(position_side, None)
+                        pos = self.context.position_vars.get(user_name, {}) \
+                            .get(strategy_name, {}) \
+                            .get(symbol, {}) \
+                            .get(position_side)
+                        in_position = pos and pos.get("in_position")
+                        if action == "is_closing":
+                            if not in_position:
                                 return
-                            if action in {"is_avg", "is_closing"}:
-                                position_data["trailing_sl_progress_counter"] = 0
-                            for attempt in range(3):
+                        elif action == "is_opening":
+                            if in_position:
+                                return
+                        if debug_label != last_known_label:
+                            await binance_client.set_margin_type(client_session, strategy_name, symbol, margin_type)
+                            await binance_client.set_leverage(client_session, strategy_name, symbol, leverage)
+                            self.last_debug_label[user_name][symbol][position_side] = debug_label
+                        last_avg_price = pos.get("avg_price", None) if pos else None
+                        # Синхронизация перед make_order
+                        self.error_handler.debug_info_notes(f"[SYNC][{debug_label}] Waiting for sync before make_order")
+                        await sync_event.wait()
+                        order_start_time = time.monotonic()
+                        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Starting make_order at {order_start_time:.2f}s")
+                        market_order_result = await binance_client.make_order(
+                            session=client_session,
+                            strategy_name=strategy_name,
+                            qty=qty,
+                            side=side,
+                            position_side=position_side,
+                            market_type="MARKET"
+                        )
+                        order_end_time = time.monotonic()
+                        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Completed make_order in {order_end_time - order_start_time:.2f}s")
+                        success, validated = self.risk_set.validate.validate_market_response(
+                            market_order_result[0], debug_label
+                        )
+                        if not success and action == "is_opening":
+                            self.error_handler.debug_info_notes(
+                                f"[INFO][{debug_label}] не удалось нормально открыть позицию.", is_print=True
+                            )
+                            return
+                        if action in {"is_avg", "is_closing"}:
+                            position_data["trailing_sl_progress_counter"] = 0
+                            for attempt in range(2):
                                 cancelled = await self.risk_set.cancel_all_risk_orders(
                                     session=client_session,
                                     user_name=user_name,
                                     strategy_name=strategy_name,
                                     symbol=symbol,
                                     position_side=position_side,
-                                    risk_suffix_list=['tp', 'sl'],
+                                    risk_suffix_list=suffics_list,
                                     cancel_order_by_id=binance_client.cancel_order_by_id
                                 )
-                                if all(cancelled):
-                                    break
-                                await asyncio.sleep(0.15)
-                            else:
-                                self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 3-х попыток ")
-                            if action == "is_closing":
-                                return
-                            if action in {"is_opening", "is_avg"}:
-                                for attempt in range(120):
-                                    pos_data = self.context.position_vars.get(user_name, {}) \
-                                        .get(strategy_name, {}) \
-                                        .get(symbol, {}) \
-                                        .get(position_side, {})
-                                    avg_price = pos_data.get("avg_price")
-                                    in_position = pos_data.get("in_position")
-                                    if in_position and avg_price != last_avg_price and avg_price is not None:
-                                        self.error_handler.debug_info_notes(
-                                            f"[READY][{debug_label}] pos_data обновлены на попытке {attempt+1}: "
-                                            f"avg_price={avg_price}, in_position={in_position}"
-                                        )
-                                        break
-                                    await asyncio.sleep(0.15)
-                                else:
-                                    self.error_handler.debug_error_notes(
-                                        f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
-                                        f"(avg_price={avg_price}, in_position={in_position})"
+                            if all(cancelled):
+                                break
+                            await asyncio.sleep(0.15)
+                        else:
+                            self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток ")
+
+                        if action == "is_closing":
+                            return
+                        if action in {"is_opening", "is_avg"}:
+                            for attempt in range(120):
+                                pos_data = self.context.position_vars.get(user_name, {}) \
+                                    .get(strategy_name, {}) \
+                                    .get(symbol, {}) \
+                                    .get(position_side, {})
+                                avg_price = pos_data.get("avg_price")
+                                in_position = pos_data.get("in_position")
+                                if in_position and avg_price != last_avg_price and avg_price is not None:
+                                    self.error_handler.debug_info_notes(
+                                        f"[READY][{debug_label}] pos_data обновлены на попытке {attempt+1}: "
+                                        f"avg_price={avg_price}, in_position={in_position}"
                                     )
-                            for attempt in range(3):
-                                placed = await self.risk_set.place_all_risk_orders(
-                                    session=client_session,
-                                    user_name=user_name,
-                                    strategy_name=strategy_name,
-                                    symbol=symbol,
-                                    position_side=position_side,
-                                    risk_suffix_list=['tp', 'sl'],
-                                    place_risk_order=binance_client.place_risk_order
-                                )
-                                if all(placed):
                                     break
                                 await asyncio.sleep(0.15)
                             else:
-                                self.error_handler.debug_error_notes(f"[CRITICAL][{debug_label}] не удалось установить риск ордера после 3-х попыток.")
-                        except Exception as e:
-                            self.error_handler.debug_error_notes(
-                                f"[Order Error] {task['debug_label']} → {e}", is_print=True
+                                self.error_handler.debug_error_notes(
+                                    f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
+                                    f"(avg_price={avg_price}, in_position={in_position})"
+                                )
+                        for attempt in range(2):
+                            placed = await self.risk_set.place_all_risk_orders(
+                                session=client_session,
+                                user_name=user_name,
+                                strategy_name=strategy_name,
+                                symbol=symbol,
+                                position_side=position_side,
+                                risk_suffix_list=suffics_list,
+                                place_risk_order=binance_client.place_risk_order
                             )
-                    sub_tasks.append(trade_task())
-                except Exception as e:
-                    self.error_handler.debug_error_notes(
-                        f"[compose_trade_instruction] Ошибка при подготовке задачи: {task}\n→ {e}", is_print=True
-                    )
-            if sub_tasks:
-                await asyncio.gather(*sub_tasks)
+                            if all(placed):
+                                break
+                            await asyncio.sleep(0.15)
+                        else:
+                            self.error_handler.debug_error_notes(f"[CRITICAL][{debug_label}] не удалось установить риск ордера после 2-х попыток.")
+                    except Exception as e:
+                        self.error_handler.debug_error_notes(
+                            f"[Order Error] {task['debug_label']} → {e}", is_print=True
+                        )
+                sub_tasks.append(trade_task)
+            try:
+                if sub_tasks:
+                    self.error_handler.debug_info_notes(f"[PARALLEL][{symbol}] Starting tasks: {len(sub_tasks)} tasks")
+                    sync_event.set()  # Разрешаем задачам двигаться к make_order
+                    await asyncio.gather(*sub_tasks)
+            except Exception as e:
+                self.error_handler.debug_error_notes(
+                    f"[compose_trade_instruction] Ошибка при выполнении задач для {symbol}: {e}", is_print=True
+                )
             # Контроль времени итерации
             end_time = time.monotonic()
             elapsed_time = end_time - start_time

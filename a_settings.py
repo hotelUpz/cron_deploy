@@ -277,7 +277,7 @@ class UsersSettings():
                     "period": 5,               # Период для расчета
                 },
                 "delta2": {
-                    "enable": True,
+                    "enable": False,
                     "tfr": "5m",
                     "range": (0.6, None),       # % ценовая дельта
                     "period": 24,               # Период для расчета
