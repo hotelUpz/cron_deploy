@@ -399,11 +399,11 @@ class HandleOrders:
                                     risk_suffix_list=suffics_list,
                                     cancel_order_by_id=binance_client.cancel_order_by_id
                                 )
-                            if all(cancelled):
-                                break
-                            await asyncio.sleep(0.15)
-                        else:
-                            self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток ")
+                                if all(cancelled):
+                                    break
+                                await asyncio.sleep(0.15)
+                            else:
+                                self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток ")
 
                         if action == "is_closing":
                             return
