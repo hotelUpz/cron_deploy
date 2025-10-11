@@ -294,7 +294,8 @@ class UsersSettings():
                 ("cron", {                                  # -- название стратегии
                     "is_active": True,
                     # "symbols": TokensTemplate().tokens_template,  # -- список токенов (выбрать из шаблона)
-                    "symbols": {"TAC", "UB", "BR", "ARIA"},         # -- -//- (либо указать вручную)
+                    "symbols": {"UB", "BR", "ARIA", "PLAY"},         # -- -//- (либо указать вручную)
+                    # "symbols": {"TAC"},         # -- -//- (либо указать вручную)
                 }),
             ],
         },

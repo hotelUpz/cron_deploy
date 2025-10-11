@@ -428,6 +428,7 @@ class HandleOrders:
                         market_order_result = await binance_client.make_order(
                             session=client_session,
                             strategy_name=strategy_name,
+                            symbol=symbol,  # Добавляем symbol
                             qty=qty,
                             side=side,
                             position_side=position_side,
@@ -465,7 +466,7 @@ class HandleOrders:
                                 self.error_handler.debug_error_notes(
                                     f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
                                 )
-
+                                return
                         if action == "is_closing":
                             return
                         if action in {"is_opening", "is_avg"}:
@@ -489,6 +490,27 @@ class HandleOrders:
                                     f"(avg_price={avg_price}, in_position={in_position})"
                                 )
                                 return
+                        for attempt in range(2):
+                            placed = await self.risk_set.cancel_all_risk_orders(
+                                session=client_session,
+                                user_name=user_name,
+                                strategy_name=strategy_name,
+                                symbol=symbol,
+                                position_side=position_side,
+                                risk_suffix_list=suffics_list,
+                                cancel_order_by_id=binance_client.cancel_order_by_id
+                            )
+                            if all(x is not False for x in placed):
+                                self.error_handler.debug_info_notes(
+                                    f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
+                                )
+                                break
+                            await asyncio.sleep(0.15)
+                        else:
+                            self.error_handler.debug_error_notes(
+                                f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
+                            )
+                            return
                         for attempt in range(2):
                             placed = await self.risk_set.place_all_risk_orders(
                                 session=client_session,
