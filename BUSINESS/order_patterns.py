@@ -39,7 +39,7 @@ class RiskSet:
             self.error_handler.trades_info_notes(
                 f"[INFO]{debug_label}[{suffix.upper()}]: отсутствует ID ордера.", False
             )
-            return False
+            return True  # Считаем успешным, так как отменять нечего
         response = await cancel_order_by_id(
             session=session,
             strategy_name=strategy_name,
@@ -64,7 +64,7 @@ class RiskSet:
         offset: float = None,
         activation_percent: float = None,
         is_move_tp: bool = False
-    ):
+    ) -> bool:
         debug_label = f"[{user_name}][{strategy_name}][{symbol}][{position_side}]"
         user_risk_cfg = self.context.total_settings[user_name]["symbols_risk"]
         key = symbol if symbol in user_risk_cfg else "ANY_COINS"
@@ -77,9 +77,10 @@ class RiskSet:
         condition_pct = (
             dinamic_condition_pct if dinamic_condition_pct is not None else user_risk_cfg.get(key, {}).get(suffix.lower())
         )
-        if not condition_pct:
-            self.error_handler.debug_info_notes(f"{debug_label}: Не задан {suffix.upper()} процент.")
-            return
+        self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} condition_pct: {condition_pct}")
+        if condition_pct is None:
+            self.error_handler.trades_info_notes(f"[INFO]{debug_label}: Не задан {suffix.upper()} процент.", False)
+            return True  # Считаем успешным, так как ордер не нужен
         is_long = position_side == "LONG"
         sign = 1 if is_long else -1
         pos_data = self.context.position_vars[user_name][strategy_name][symbol][position_side]
@@ -97,8 +98,8 @@ class RiskSet:
                 shift_pct = condition_pct if suffix == "tp" else -abs(condition_pct)
                 target_price = round(avg_price * (1 + sign * shift_pct / 100), price_precision)
         except Exception as e:
-            print(f"{debug_label} ❌ Error calculating target_price: {e}")
-            return
+            self.error_handler.debug_error_notes(f"{debug_label} ❌ Error calculating target_price: {e}")
+            return False
         side = "SELL" if is_long else "BUY"
         try:
             response = await place_risk_order(
@@ -113,14 +114,14 @@ class RiskSet:
                 order_type=order_type
             )
         except Exception as e:
-            print(f"{debug_label} ❌ Error placing order: {e}")
-            return
+            self.error_handler.debug_error_notes(f"{debug_label} ❌ Error placing {suffix.upper()} order: {e}")
+            return False
         validated = self.validate.validate_risk_response(response, suffix.upper(), debug_label)
         if validated:
             success, order_id = validated
             if success:
                 pos_data[f"{suffix.lower()}_order_id"] = order_id
-                print(f"{debug_label} ✅ Order placed: {suffix.lower()}_order_id = {order_id}")
+                self.error_handler.debug_info_notes(f"{debug_label} ✅ Order placed: {suffix.lower()}_order_id = {order_id}")
                 return True
         return False
 
@@ -133,13 +134,28 @@ class RiskSet:
         position_side: str,
         risk_suffix_list: List,  # ['tp', 'sl']
         cancel_order_by_id: Callable,
-    ):
+    ) -> bool:
         """ Отменяет оба ордера (SL и TP) параллельно. """
-        return await asyncio.gather(*[
-            self._cancel_risk_order(
-                session, user_name, strategy_name, symbol, position_side, cancel_order_by_id, suffix
-            ) for suffix in risk_suffix_list
-        ])
+        for attempt in range(2):
+            cancelled = await asyncio.gather(*[
+                self._cancel_risk_order(
+                    session, user_name, strategy_name, symbol, position_side, cancel_order_by_id, suffix
+                ) for suffix in risk_suffix_list
+            ])
+            results = dict(zip(risk_suffix_list, cancelled))
+            self.error_handler.debug_info_notes(
+                f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] Attempt {attempt + 1}: {results}"
+            )
+            if all(x is not False for x in cancelled):
+                self.error_handler.debug_info_notes(
+                    f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders processed on attempt {attempt + 1}"
+                )
+                return True
+            await asyncio.sleep(0.15)
+        self.error_handler.debug_error_notes(
+            f"[INFO][{user_name}][{strategy_name}][{symbol}][{position_side}] Не удалось обработать риск ордера после 2 попыток: {results}"
+        )
+        return False
 
     async def place_all_risk_orders(
         self,
@@ -151,16 +167,56 @@ class RiskSet:
         risk_suffix_list: List,  # ['tp', 'sl']
         place_risk_order: Callable,
         offset: float = None,
-        activation_percent: float = None,
+        activation_percent: float = float('inf'),
         is_move_tp: bool = False,
-    ):
+    ) -> bool:
         """ Размещает оба ордера (SL и TP) параллельно. """
-        return await asyncio.gather(*[
-            self._place_risk_order(
-                session, user_name, strategy_name, symbol, position_side, suffix,
-                place_risk_order, offset, activation_percent, is_move_tp
-            ) for suffix in risk_suffix_list
-        ])
+        for attempt in range(2):
+            placed = await asyncio.gather(*[
+                self._place_risk_order(
+                    session, user_name, strategy_name, symbol, position_side, suffix,
+                    place_risk_order, offset, activation_percent, is_move_tp
+                ) for suffix in risk_suffix_list
+            ])
+            results = dict(zip(risk_suffix_list, placed))
+            self.error_handler.debug_info_notes(
+                f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] Attempt {attempt + 1}: {results}"
+            )
+            # Проверяем, все ли ордера обработаны (True или нефатальная ошибка)
+            all_processed = True
+            for suffix, result in results.items():
+                if result is False:
+                    # Проверяем, была ли это нефатальная ошибка
+                    response = await place_risk_order(
+                        session=session,
+                        strategy_name=strategy_name,
+                        symbol=symbol,
+                        qty=self.context.position_vars[user_name][strategy_name][symbol][position_side].get("comul_qty"),
+                        side="SELL" if position_side == "LONG" else "BUY",
+                        position_side=position_side,
+                        target_price=self.context.position_vars[user_name][strategy_name][symbol][position_side].get("avg_price"),
+                        suffix=suffix,
+                        order_type=self.context.total_settings[user_name]["symbols_risk"].get(
+                            symbol if symbol in self.context.total_settings[user_name]["symbols_risk"] else "ANY_COINS", {}
+                        ).get("tp_order_type")
+                    )
+                    if response and isinstance(response[0], dict) and response[0].get("code") == -2022:
+                        self.error_handler.trades_info_notes(
+                            f"[INFO][{user_name}][{strategy_name}][{symbol}][{position_side}] {suffix.upper()} rejected: {response[0].get('msg')}. Likely position closed or invalid.", False
+                        )
+                        results[suffix] = True  # Считаем нефатальную ошибку успешной
+                    else:
+                        all_processed = False
+            if all_processed:
+                self.error_handler.debug_info_notes(
+                    f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders processed on attempt {attempt + 1}: {results}"
+                )
+                return True
+            await asyncio.sleep(0.15)
+        self.error_handler.debug_error_notes(
+            f"[CRITICAL][{user_name}][{strategy_name}][{symbol}][{position_side}] Не удалось установить риск ордера после 2 попыток: {results}"
+        )
+        return False
 
     async def replace_sl(
         self,
@@ -177,22 +233,25 @@ class RiskSet:
         debug_label: str = ""
     ) -> None:
         try:
-            await self.cancel_all_risk_orders(
+            cancelled = await self.cancel_all_risk_orders(
                 session, user_name, strategy_name, symbol, position_side, ["tp", "sl"], cancel_order_by_id
             )
-            self.error_handler.debug_info_notes(f"Cancelled SL/TP for {debug_label}")
+            if cancelled:
+                self.error_handler.debug_info_notes(f"[REPLACE][{debug_label}] Cancelled SL/TP")
             risk_suffics_list = ['sl']
             if is_move_tp:
                 risk_suffics_list.append('tp')
-            await self.place_all_risk_orders(
+            placed = await self.place_all_risk_orders(
                 session, user_name, strategy_name, symbol, position_side, risk_suffics_list,
                 place_risk_order, offset, activation_percent, is_move_tp
             )
+            if not placed:
+                self.error_handler.debug_error_notes(f"[REPLACE][{debug_label}] Failed to place new SL/TP")
         except aiohttp.ClientError as e:
-            self.error_handler.debug_error_notes(f"[HTTP Error] Failed to replace SL/TP for {debug_label}: {e}")
+            self.error_handler.debug_error_notes(f"[HTTP Error][{debug_label}] Failed to replace SL/TP: {e}")
             raise
         except Exception as e:
-            self.error_handler.debug_error_notes(f"[Unexpected Error] Failed to replace SL/TP for {debug_label}: {e}")
+            self.error_handler.debug_error_notes(f"[Unexpected Error][{debug_label}] Failed to replace SL/TP: {e}")
             raise
 
 class HandleOrders:
@@ -267,7 +326,7 @@ class HandleOrders:
                             task["binance_client"].place_risk_order,
                             task["debug_label"]
                         )
-                    sub_tasks.append(trailing_task)
+                    sub_tasks.append(trailing_task())  # Вызываем корутину
                     continue
                 if action == "is_closing":
                     side = "SELL" if position_side == "LONG" else "BUY"
@@ -305,7 +364,7 @@ class HandleOrders:
                     margin_size = pos_martin.get("cur_margin_size")
                     if margin_size is None:
                         margin_size = base_margin
-                    print(f"{debug_label}: total margin: {margin_size} usdt")
+                    self.error_handler.debug_info_notes(f"{debug_label}: total margin: {margin_size} usdt")
                     qty = self.pos_utils.size_calc(
                         margin_size=margin_size,
                         entry_price=cur_price,
@@ -338,7 +397,6 @@ class HandleOrders:
                         margin_type = core.get("margin_type", "CROSSED")
 
                         suffics_list = []
-
                         if bool(symbols_risk.get(symbol_risk_key, {}).get("sl")):
                             suffics_list.append("sl")
                         if bool(symbols_risk.get(symbol_risk_key, {}).get("tp")):
@@ -399,12 +457,17 @@ class HandleOrders:
                                     risk_suffix_list=suffics_list,
                                     cancel_order_by_id=binance_client.cancel_order_by_id
                                 )
-                                if all(cancelled):
+                                if all(x is not False for x in cancelled):
+                                    self.error_handler.debug_info_notes(
+                                        f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
+                                    )
                                     break
                                 await asyncio.sleep(0.15)
                             else:
-                                self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток ")
-
+                                self.error_handler.debug_error_notes(
+                                    f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
+                                )
+                                return
                         if action == "is_closing":
                             return
                         if action in {"is_opening", "is_avg"}:
@@ -427,6 +490,7 @@ class HandleOrders:
                                     f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
                                     f"(avg_price={avg_price}, in_position={in_position})"
                                 )
+                                return
                         for attempt in range(2):
                             placed = await self.risk_set.place_all_risk_orders(
                                 session=client_session,
@@ -437,19 +501,24 @@ class HandleOrders:
                                 risk_suffix_list=suffics_list,
                                 place_risk_order=binance_client.place_risk_order
                             )
-                            if all(placed):
+                            if all(x is not False for x in placed):
+                                self.error_handler.debug_info_notes(
+                                    f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders placed on attempt {attempt + 1}"
+                                )
                                 break
                             await asyncio.sleep(0.15)
                         else:
-                            self.error_handler.debug_error_notes(f"[CRITICAL][{debug_label}] не удалось установить риск ордера после 2-х попыток.")
+                            self.error_handler.debug_error_notes(
+                                f"[CRITICAL][{debug_label}] не удалось установить риск ордера после 2-х попыток."
+                            )
                     except Exception as e:
                         self.error_handler.debug_error_notes(
                             f"[Order Error] {task['debug_label']} → {e}", is_print=True
                         )
-                sub_tasks.append(trade_task)
+                sub_tasks.append(trade_task())  # Вызываем корутину
             try:
                 if sub_tasks:
-                    self.error_handler.debug_info_notes(f"[PARALLEL][{symbol}] Starting tasks: {len(sub_tasks)} tasks")
+                    self.error_handler.debug_info_notes(f"[PARALLEL][{symbol}] Starting tasks: {len(sub_tasks)} tasks, tasks: {[type(t).__name__ for t in sub_tasks]}")
                     sync_event.set()  # Разрешаем задачам двигаться к make_order
                     await asyncio.gather(*sub_tasks)
             except Exception as e:
