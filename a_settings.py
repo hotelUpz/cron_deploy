@@ -245,7 +245,7 @@ class UsersSettings():
                 #     "reverse": False              # reverse при Мартине
                 # },
                 "ANY_COINS": {
-                    "margin_size": 21.0,          # размер маржи в USDT (либо другой базовой валюте)
+                    "margin_size": 51.0,          # размер маржи в USDT (либо другой базовой валюте)
                     "leverage": 16,              # размер плеча. Общий объем на сделку == (margin_size x leverage)
                     "sl": None,                  # %, float, отрицательное значение. Отключено -- None
                     "fallback_sl": None,           # tp на случай отказа основного тейка
