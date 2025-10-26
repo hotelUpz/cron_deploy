@@ -1275,3 +1275,55 @@
                         #     await asyncio.sleep(0.15)
                         # else:
                         #     self.error_handler.debug_error_notes(f"[INFO][{debug_label}] не удалось отменить риск ордера после 3-х попыток ")
+
+
+
+
+
+    # def avg_control(
+    #     self,
+    #     grid_orders: list,
+    #     avg_progress_counter: int,
+    #     cur_price: float,
+    #     init_price: float,
+    #     normalized_sign: int,
+    #     nPnL_calc: Callable[[float, float, str], float],
+    #     avg_signal: bool,
+    #     debug_label: str,
+    # ) -> tuple[int, float]:
+    #     """
+    #     Контроль усреднения.
+    #     Возвращает:
+    #         - обновлённый прогресс (int),
+    #         - объём текущего шага (float), либо 0.0 если усреднение не нужно.
+    #     """
+    #     if not grid_orders or not isinstance(grid_orders, list):
+    #         self.error_handler.debug_info_notes(f"{debug_label} Невалидный grid_orders: ожидался список.")
+    #         return avg_progress_counter, 0.0
+
+    #     if not isinstance(avg_progress_counter, int) or avg_progress_counter < 0:
+    #         self.error_handler.debug_info_notes(f"{debug_label} Некорректный avg_progress_counter: {avg_progress_counter}")
+    #         return avg_progress_counter, 0.0
+
+    #     len_grid_orders = len(grid_orders)
+
+    #     if len_grid_orders <= 1 or avg_progress_counter >= len_grid_orders:
+    #         return avg_progress_counter, 0.0
+
+    #     step = grid_orders[min(avg_progress_counter, len_grid_orders - 1)]
+    #     indent = -abs(step.get("indent", 0.0))
+    #     volume = step.get("volume", 0.0)
+
+    #     avg_nPnl = nPnL_calc(cur_price, init_price, debug_label) * normalized_sign
+
+    #     if avg_nPnl <= indent:
+    #         new_progress = avg_progress_counter + 1
+
+    #         # ограничим, чтобы не выйти за пределы
+    #         grid_index = min(new_progress, len_grid_orders)
+    #         open_by_signal = grid_orders[grid_index].get("signal", False)
+
+    #         if not open_by_signal or avg_signal:
+    #             return new_progress, volume
+
+    #     return avg_progress_counter, 0.0

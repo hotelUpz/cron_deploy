@@ -539,3 +539,15 @@ if __name__ == "__main__":
 # git add .
 # git commit -m "fix martin reverse 4"
 # git push -u origin volfUs
+
+
+
+# # убедились, что права уже установлены (вы это сделали)
+# chmod 600 ssh_key
+
+# # запустить агент (если он не запущен) и добавить ключ из текущей директории
+# eval "$(ssh-agent -s)" && ssh-add ./ssh_key
+
+# ssh-add -l        # выведет список добавленных ключей или "The agent has no identities"
+
+# ssh -T git@github.com

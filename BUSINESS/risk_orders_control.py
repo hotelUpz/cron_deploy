@@ -331,7 +331,7 @@ class Average:
             new_progress = avg_progress_counter + 1
 
             # ограничим, чтобы не выйти за пределы
-            grid_index = min(new_progress, len_grid_orders)
+            grid_index = min(new_progress, len_grid_orders-1)
             open_by_signal = grid_orders[grid_index].get("signal", False)
 
             if not open_by_signal or avg_signal:
@@ -347,14 +347,12 @@ class Average:
         normalized_sign: int,
         avg_signal: bool,
         settings_pos_options: Dict,
-        debug_label: str
+        debug_label: str,
     ) -> bool:
-        """
-        Проверяет необходимость усреднения и генерирует сигнал.
-        """
+        """Проверяет необходимость усреднения и формирует сигнал."""
         grid_cfg = settings_pos_options["entry_conditions"]["grid_orders"]
-        cur_avg_progress = symbol_data["avg_progress_counter"]
-        init_price = symbol_data["entry_price"]
+        cur_avg_progress = symbol_data.get("avg_progress_counter", 1)
+        init_price = symbol_data.get("entry_price", 0.0)
 
         new_avg_progress, avg_volume = self.avg_control(
             grid_cfg,
@@ -364,21 +362,24 @@ class Average:
             normalized_sign,
             nPnL_calc,
             avg_signal,
-            debug_label
+            debug_label,
         )
 
-        if new_avg_progress == cur_avg_progress:
+        if new_avg_progress == cur_avg_progress or avg_volume == 0.0:
             return False
 
         symbol_data["avg_progress_counter"] = new_avg_progress
-        symbol_data["process_volume"] = avg_volume / 100  # для выставления ордера
+        symbol_data["process_volume"] = avg_volume / 100
 
-        signal_reason = f'➗ Усредняем {debug_label}. Счётчик: {cur_avg_progress-1} → {new_avg_progress-1}.'
+        safe_idx = min(new_avg_progress-1, len(grid_cfg) - 1)
         self.error_handler.trades_info_notes(
-            f"[{debug_label}]. {signal_reason}",
-            True
+            f"[{debug_label}] ➗ Усредняем. "
+            f"Счётчик {cur_avg_progress} → {new_avg_progress}. "
+            f"Cur vol: {avg_volume} "
+            f"Cur price: {cur_price} "
+            f"Indent: {grid_cfg[safe_idx]}",
+            True,
         )
-
         return True
 
 
