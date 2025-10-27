@@ -202,12 +202,11 @@ class StrategySettings():
                     "is_close_bar": True,       # Дожидаться закрытия бара                
                     "grid_orders": [
                         {'indent': 0.0, 'volume': 14, 'signal': True},
-                        {'indent': -7.0, 'volume': 14, 'signal': False}, # %
-                        {'indent': -14.0, 'volume': 14, 'signal': False}, # %
-                        {'indent': -21.0, 'volume': 14, 'signal': False}, # %
-                        {'indent': -28.0, 'volume': 14, 'signal': False}, # %
-                        {'indent': -35.0, 'volume': 14, 'signal': False}, # %
-                        {'indent': -42.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -3.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -9.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -27.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -81.0, 'volume': 14, 'signal': False}, # %
+                        {'indent': -243.0, 'volume': 14, 'signal': False}, # %
                     ],                     
                 },
 
