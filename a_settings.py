@@ -192,8 +192,8 @@ class UsersSettings():
                 "margin_type": "CROSSED",         # Тип маржи. Кросс-маржа → "CROSSED", Изолированная → "ISOLATED"
                 "quote_asset": "USDT",            # → валюта, в которой указана цена (например, USDT, USDC, BUSD)
                 "direction": 3,                   # 1 -- LONG, 2 --SHORT, 3 -- BOTH
-                "long_positions_limit": 3,        # количество одновременно открываемых лонгов
-                "short_positions_limit": 3,       # количество одновременно открываемых шортов
+                "long_positions_limit": 4,        # количество одновременно открываемых лонгов
+                "short_positions_limit": 4,       # количество одновременно открываемых шортов
             },
 
             "symbols_risk": {
@@ -294,7 +294,7 @@ class UsersSettings():
                 ("cron", {                                  # -- название стратегии
                     "is_active": True,
                     # "symbols": TokensTemplate().tokens_template,  # -- список токенов (выбрать из шаблона)
-                    "symbols": {"BR", "ARIA", "PLAY"},         # -- -//- (либо указать вручную)
+                    "symbols": {"BR", "ARIA", "REI", "SOPH"},         # -- -//- (либо указать вручную)
                     # "symbols": {"TAC"},         # -- -//- (либо указать вручную)
                 }),
             ],
@@ -308,7 +308,7 @@ FILTER_WINDOW: str = "5m" # (1m, 2m, 3m, 4m, 5m, 15m, 30m, 1h, 2h, 4h, 12h, 1d)
 
 # ----------- UTILS ---------------
 WAIT_CLOSE_CANDLE: int = 5                 # sec. Ожидаем формирования новой свечи
-TZ_STR: str = "Europe/Kyiv"                # часовой пояс ("Europe/Berlin")
+TZ_STR: str = "Europe/Berlin"                # часовой пояс ("Europe/Berlin")
 MAX_LOG_LINES: int = 1001                  # количество строк в лог файлах
 
 # --------- SYSTEM ----------------
