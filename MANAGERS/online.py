@@ -232,7 +232,7 @@ class WebSocketManager:
         if self.session and not self.session.closed:
             await self.session.close()
 
-        self.error_handler.debug_info_notes("[WS] Процесс остановлен")
+        # self.error_handler.debug_info_notes("[WS] Процесс остановлен")
 
     async def sync_ws_streams(self, active_symbols: list) -> None:
         """Синхронизирует активные символы (перезапускает при изменении списка)."""

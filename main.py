@@ -362,9 +362,10 @@ class Core:
 
                 if self.cron_filter.time_scheduler() or self.context.first_iter:
                     # print("self.cron_filter.time_scheduler()")
-                    await asyncio.gather(*[self.filter.apply_filter_settings(self.public_session, user_name, self.context.fetch_symbols) for user_name in self.all_users])
+                    # await asyncio.gather(*[self.filter.apply_filter_settings(self.public_session, user_name, self.context.fetch_symbols) for user_name in self.all_users])
                     # ✅ Печатаем один раз после обработки всех юзеров
                     # self.filter.print_report()
+                    pass
 
                 # //signal block:
                 interval_completed = self.cron_cycle.time_scheduler()
@@ -498,10 +499,10 @@ class Core:
                         self.error_handler.debug_error_notes(f"Ошибка при записи логов: {e}")
                     last_write_logs_time = now
 
-            self.context.first_iter = False
-            # pprint(self.context.ws_price_data)
-            await asyncio.sleep(MAIN_CYCLE_FREQUENCY)
-            # print("Tik")
+                self.context.first_iter = False
+                # pprint(self.context.ws_price_data)
+                await asyncio.sleep(MAIN_CYCLE_FREQUENCY)
+                # print("Tik")
 
 
 async def main():
