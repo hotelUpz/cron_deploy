@@ -37,9 +37,9 @@ class RiskSet:
         order_id = pos_data.get(f"{suffix}_order_id")
 
         if not order_id:
-            self.error_handler.trades_info_notes(
-                f"[INFO]{debug_label}[{suffix.upper()}]: отсутствует ID ордера.", False
-            )
+            # self.error_handler.trades_info_notes(
+            #     f"[INFO]{debug_label}[{suffix.upper()}]: отсутствует ID ордера.", False
+            # )
             return True  # Считаем успешным, так как отменять нечего
 
         response = await cancel_order_by_id(
@@ -85,7 +85,7 @@ class RiskSet:
             else user_risk_cfg.get(key, {}).get(suffix.lower())
         )
 
-        self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} condition_pct: {condition_pct}")
+        # self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} condition_pct: {condition_pct}")
         if condition_pct is None:
             self.error_handler.debug_info_notes(f"[INFO][{debug_label}] Не задан {suffix.upper()} процент.")
             return True  # Считаем успешным, так как ордер не нужен
@@ -109,13 +109,13 @@ class RiskSet:
             else:
                 shift_pct = condition_pct if suffix == "tp" else -abs(condition_pct)
                 target_price = round(avg_price * (1 + sign * shift_pct / 100), price_precision)
-                self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} shift_pct: {shift_pct}, target_price: {target_price}")
+                # self.error_handler.debug_info_notes(f"[CONFIG][{debug_label}] {suffix.upper()} shift_pct: {shift_pct}, target_price: {target_price}")
         except Exception as e:
             self.error_handler.debug_error_notes(f"[ERROR][{debug_label}] Error calculating target_price: {e}")
             return False
 
         side = "SELL" if is_long else "BUY"
-        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Placing {suffix.upper()} order: side={side}, qty={qty}, price={target_price}")
+        # self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Placing {suffix.upper()} order: side={side}, qty={qty}, price={target_price}")
 
         try:
             response = await place_risk_order(
@@ -134,7 +134,7 @@ class RiskSet:
             return False
 
         validated = self.validate.validate_risk_response(response, suffix.upper(), debug_label)
-        self.error_handler.debug_info_notes(f"[VALIDATE][{debug_label}] {suffix.upper()} validation result: {validated}")
+        # self.error_handler.debug_info_notes(f"[VALIDATE][{debug_label}] {suffix.upper()} validation result: {validated}")
         if validated:
             success, order_id = validated
             if success:
@@ -225,7 +225,7 @@ class RiskSet:
                 ["tp", "sl"],
                 cancel_order_by_id
             )
-            self.error_handler.debug_info_notes(f"[CANCEL][{debug_label}] Cancelled SL/TP: {cancelled}")
+            # self.error_handler.debug_info_notes(f"[CANCEL][{debug_label}] Cancelled SL/TP: {cancelled}")
 
             risk_suffics_list = ['sl']
             if is_move_tp:
@@ -421,10 +421,10 @@ class HandleOrders:
                             self.last_debug_label[user_name][symbol][position_side] = debug_label
                         last_avg_price = pos.get("avg_price", None) if pos else None
                         # Синхронизация перед make_order
-                        self.error_handler.debug_info_notes(f"[SYNC][{debug_label}] Waiting for sync before make_order")
+                        # self.error_handler.debug_info_notes(f"[SYNC][{debug_label}] Waiting for sync before make_order")
                         await sync_event.wait()
                         order_start_time = time.monotonic()
-                        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Starting make_order at {order_start_time:.2f}s")
+                        # self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Starting make_order at {order_start_time:.2f}s")
                         market_order_result = await binance_client.make_order(
                             session=client_session,
                             strategy_name=strategy_name,
@@ -435,14 +435,14 @@ class HandleOrders:
                             market_type="MARKET"
                         )
                         order_end_time = time.monotonic()
-                        self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Completed make_order in {order_end_time - order_start_time:.2f}s")
+                        # self.error_handler.debug_info_notes(f"[ORDER][{debug_label}] Completed make_order in {order_end_time - order_start_time:.2f}s")
                         success, validated = self.risk_set.validate.validate_market_response(
                             market_order_result[0], debug_label
                         )
                         if not success and action == "is_opening":
-                            self.error_handler.debug_info_notes(
-                                f"[INFO][{debug_label}] не удалось нормально открыть позицию.", is_print=True
-                            )
+                            # self.error_handler.debug_info_notes(
+                            #     f"[INFO][{debug_label}] не удалось нормально открыть позицию.", is_print=True
+                            # )
                             return
                         if action in {"is_avg", "is_closing"}:
                             position_data["trailing_sl_progress_counter"] = 0
@@ -457,15 +457,15 @@ class HandleOrders:
                                     cancel_order_by_id=binance_client.cancel_order_by_id
                                 )
                                 if all(x is not False for x in cancelled):
-                                    self.error_handler.debug_info_notes(
-                                        f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
-                                    )
+                                    # self.error_handler.debug_info_notes(
+                                    #     f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
+                                    # )
                                     break
                                 await asyncio.sleep(0.15)
                             else:
-                                self.error_handler.debug_error_notes(
-                                    f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
-                                )
+                                # self.error_handler.debug_error_notes(
+                                #     f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
+                                # )
                                 return
                         if action == "is_closing":
                             return
@@ -485,10 +485,10 @@ class HandleOrders:
                                     break
                                 await asyncio.sleep(0.15)
                             else:
-                                self.error_handler.debug_error_notes(
-                                    f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
-                                    f"(avg_price={avg_price}, in_position={in_position})"
-                                )
+                                # self.error_handler.debug_error_notes(
+                                #     f"[TIMEOUT][{debug_label}] не удалось дождаться avg_price/in_position "
+                                #     f"(avg_price={avg_price}, in_position={in_position})"
+                                # )
                                 return
                         for attempt in range(2):
                             placed = await self.risk_set.cancel_all_risk_orders(
@@ -501,15 +501,15 @@ class HandleOrders:
                                 cancel_order_by_id=binance_client.cancel_order_by_id
                             )
                             if all(x is not False for x in placed):
-                                self.error_handler.debug_info_notes(
-                                    f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
-                                )
+                                # self.error_handler.debug_info_notes(
+                                #     f"[CANCEL][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders cancelled on attempt {attempt + 1}"
+                                # )
                                 break
                             await asyncio.sleep(0.15)
                         else:
-                            self.error_handler.debug_error_notes(
-                                f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
-                            )
+                            # self.error_handler.debug_error_notes(
+                            #     f"[INFO][{debug_label}] не удалось отменить риск ордера после 2-х попыток"
+                            # )
                             return
                         for attempt in range(2):
                             placed = await self.risk_set.place_all_risk_orders(
@@ -522,9 +522,9 @@ class HandleOrders:
                                 place_risk_order=binance_client.place_risk_order
                             )
                             if all(x is not False for x in placed):
-                                self.error_handler.debug_info_notes(
-                                    f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders placed on attempt {attempt + 1}"
-                                )
+                                # self.error_handler.debug_info_notes(
+                                #     f"[PLACE][{user_name}][{strategy_name}][{symbol}][{position_side}] All risk orders placed on attempt {attempt + 1}"
+                                # )
                                 break
                             await asyncio.sleep(0.15)
                         else:
@@ -538,7 +538,7 @@ class HandleOrders:
                 sub_tasks.append(trade_task())  # Вызываем корутину
             try:
                 if sub_tasks:
-                    self.error_handler.debug_info_notes(f"[PARALLEL][{symbol}] Starting tasks: {len(sub_tasks)} tasks, tasks: {[type(t).__name__ for t in sub_tasks]}")
+                    # self.error_handler.debug_info_notes(f"[PARALLEL][{symbol}] Starting tasks: {len(sub_tasks)} tasks, tasks: {[type(t).__name__ for t in sub_tasks]}")
                     sync_event.set()  # Разрешаем задачам двигаться к make_order
                     await asyncio.gather(*sub_tasks)
             except Exception as e:
@@ -551,9 +551,9 @@ class HandleOrders:
             target_time = random.uniform(1.0, 1.5)  # Случайная цель 1–1.5с
             if elapsed_time < target_time:
                 sleep_time = target_time - elapsed_time
-                self.error_handler.debug_info_notes(
-                    f"[TIMING][{symbol}] Итерация заняла {elapsed_time:.2f}s, спим {sleep_time:.2f}s для достижения {target_time:.2f}s"
-                )
+                # self.error_handler.debug_info_notes(
+                #     f"[TIMING][{symbol}] Итерация заняла {elapsed_time:.2f}s, спим {sleep_time:.2f}s для достижения {target_time:.2f}s"
+                # )
                 await asyncio.sleep(sleep_time)
 
     async def compose_trade_instruction(self, task_list: list[dict]):
