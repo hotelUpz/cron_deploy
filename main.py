@@ -498,9 +498,10 @@ class Core:
                         self.error_handler.debug_error_notes(f"Ошибка при записи логов: {e}")
                     last_write_logs_time = now
 
-                self.context.first_iter = False
-                await asyncio.sleep(MAIN_CYCLE_FREQUENCY)
-                # print("Tik")
+            self.context.first_iter = False
+            # pprint(self.context.ws_price_data)
+            await asyncio.sleep(MAIN_CYCLE_FREQUENCY)
+            # print("Tik")
 
 
 async def main():

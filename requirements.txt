@@ -1,6 +1,6 @@
-setuptools
+# setuptools
 requests
-websockets
+# websockets
 aiohttp
 numpy
 # numpy==1.26.4
